@@ -3,13 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const bodyParser = require('body-parser');
-// const { nanoid } = require('nanoid/non-secure');
 const { default: mongoose } = require('mongoose');
-// let nanoid;
-// (async () => {
-//   const { nanoid: nanoidModule } = await import('nanoid/async');
-//   nanoid = nanoidModule;
-// })();
+
 
 
 
@@ -60,45 +55,53 @@ app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
 
-
+// Function to generate Short URL Number
 function generateRandomNumber() {
   const min = 100000; // Minimum value (inclusive)
   const max = 999999; // Maximum value (inclusive)
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// Function to validate a URL
+function validateUrl(url) {
+  const urlRegex = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
+  return urlRegex.test(url);
+}
+
 app.post("/api/shorturl", async (req, res) => {
   let short_url;
   const orignal_url = req.body.url;
-do {
-  short_url = generateRandomNumber();
-} while (await Url.exists({s_url: short_url}));
-
-try{
-  await Url.create({
-    o_url: orignal_url,
-    s_url: short_url,
-  });
-  res.json({short_url});
-} catch (err) {
-console.log("Failed to insert URL");
-}
+  // Validate the URL
+  const isValidUrl = validateUrl(orignal_url);
+  if (isValidUrl) {
+    do {
+      short_url = generateRandomNumber();
+    } while (await Url.exists({s_url: short_url}));
+    
+    try{
+      await Url.create({
+        o_url: orignal_url,
+        s_url: short_url,
+      });
+      res.json({original_url: orignal_url, short_url: short_url});
+    } catch (err) {
+    console.log("Failed to insert URL");
+    }
+  } else {
+    res.json({ error: 'Invalid URL' });
+  }
 });
 
 
 
 
 // To retrieve and redirect to the orignal url from /:shorturl route
-app.get("/:f_url", async (req, res) => {
+app.get("/api/shorturl/:f_url", async (req, res) => {
   const f_url = req.params.f_url.toString();
   try {
     const url = await Url.findOne({s_url: f_url});
     if (url){
-      let originalUrl = url.o_url;
-      if (!originalUrl.startsWith("http://") && !originalUrl.startsWith("https://")) {
-        originalUrl = "https://" + originalUrl;
-      }
-      res.redirect(originalUrl);
+      res.redirect(url.o_url);
     } else {
       res.status(404).send('Short URL not found');
     }
